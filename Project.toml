@@ -1,0 +1,13 @@
+name = "SPM"
+uuid = "33df24e7-9b75-42ac-baa0-09ce925e3d90"
+authors = ["Junnosuke Oishi"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
