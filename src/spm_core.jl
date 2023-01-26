@@ -4,10 +4,9 @@ STMデータを扱うためのモジュール
 module SPMCore
 
 import DelimitedFiles.readdlm
-using Plots
+using Plots, PyPlot
 
-export Plots
-export Surface, show
+export Surface, showHeatmap
 export Image, loadImage, extract, filter, horz_diff, vert_diff
 export Tip
 

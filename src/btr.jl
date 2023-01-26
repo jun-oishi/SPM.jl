@@ -1,6 +1,6 @@
 module BTR
 
-using .SPMCore
+using ..SPMCore
 import Statistics.mean
 import MDToolbox as MDT
 import Flux
@@ -92,19 +92,10 @@ function solveDifferentiableBTR(
 )
     images_copy = deepcopy(images)
 
-    # struct Tip
-    #     P::AbstractArray
-    # end
-    # Tip(size::Integer) = Tip(zeros(Float64, size, size))
     tip = genFlatTip(tip_size, images[1].resolution)
     min_loss_tip = deepcopy(tip)
 
-    # モデルのうちで学習させるパラメータを指定する
-    # Flux.@functor Tip (P,)
     Flux.@functor Tip (data,)
-    #  各画像対の二乗平均誤差:mean((image_randn_copy .- image_randn)^2)を求めて全画像の平均を取る
-    # loss(x, y) = mean(Flux.Losses.mse.(m.(x), y))
-    # (m::Tip)(image) = idilation(ierosion(image, m.P), m.P)
     function loss(images_copy::Vector{Image}, images::Vector{Image})
         data_opened = [tip(image).data for image in images_copy]
         data = [image.data for image in images]
