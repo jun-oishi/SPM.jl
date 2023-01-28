@@ -26,7 +26,6 @@ function showHeatmap(
     surface::Surface;
     title::String="", legend=false
 )::Plots.Plot
-    pyplot()
     x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution / 10.0
     y_mesh = collect(1:size(surface.data, 2)) .* surface.resolution / 10.0
     ret = heatmap(
@@ -36,11 +35,10 @@ function showHeatmap(
     return ret
 end
 
-function addTompgraph!(
+function addProfilePlot!(
         plot::Plots.Plot, surface::Surface, direction::Symbol, i_slice::Integer;
         title::String="", label::String=""
 )::Plots.Plot
-    pyplot()
     if direction == :x
         x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution / 10.0
         y_mesh = surface.data[:, i_slice]
@@ -69,8 +67,6 @@ end
     - resolution: 解像度 (AA / px)
     - width: 幅 (AA)
     - height: 高さ (AA)
-    # Constructer Parameters
-
 """
 struct Image <: Surface
     data::Matrix
@@ -193,7 +189,7 @@ end
     - data: チップデータ
     - resolution: 解像度 (AA / px)
     - size: サイズ (AA)
-    # Constructer Parameters
+    # Constructor Parameters
     - data: チップデータ
     - resolution: 解像度 (AA / px)
 """

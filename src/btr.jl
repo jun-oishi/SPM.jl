@@ -42,12 +42,12 @@ end
 
 abstract type BTRResult end
 
-struct VillarrubiaBTRReslt <: BTRResult
+struct VillarrubiaBTRResult <: BTRResult
     tip::Tip
     loss::AbstractFloat
     threshold::AbstractFloat
 end
-OriginalBTRResult = VillarrubiaBTRReslt
+OriginalBTRResult = VillarrubiaBTRResult
 
 function solveVillarrubiaBTR(
         images::Vector{Image}, tip_size::Integer, threshold::AbstractFloat
@@ -61,12 +61,12 @@ function solveVillarrubiaBTR(
     for image in images
         loss += mean((opening(image, tip).data .- image.data) .^ 2)
     end
-    return VillarrubiaBTRReslt(tip, loss, threshold)
+    return VillarrubiaBTRResult(tip, loss, threshold)
 end
 solveOriginalBTR = solveVillarrubiaBTR
 
 function solveVillarrubiaBTRoverThresholds(
-        images::Vector{Image}, tip_size::Integer, thresholds::Vector{AbstractFloat}
+        images::Vector{Image}, tip_size::Integer, thresholds::Vector
 )::Vector{OriginalBTRResult}
     ret = Vector{OriginalBTRResult}(undef, length(thresholds))
     Threads.@threads for it in eachindex(thresholds)
