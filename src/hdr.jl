@@ -1,6 +1,9 @@
 module HDR
 
 using ..SPMCore
+using Unitful
+
+import Dates
 
 mutable struct HDRFile
     volume::Tuple{Integer, Integer}
@@ -74,6 +77,63 @@ function loadHDR(filename::String)::Image
     resolution = file.width / size(data, 1) # nm / px
 
     return Image(data, resolution)
+end
+
+function saveHDR(
+    surface::SPMCore.Surface, dist_path::String;
+    unit::Unitful.FreeUnits=DEFAULT_UNIT, sample_name="", remark="", now=Dates.now()
+)::Bool
+    if !occursin(".hdr", dist_path)
+        throw(ArgumentError("File extension must be .hdr"))
+    elseif isfile(dist_path)
+        throw(ArgumentError("File already exists: $(dist_path)"))
+    end
+
+    # ヘッダファイルの書き込み
+    if sample_name == ""
+        sample_name = replace(basename(dist_path), ".hdr" => "")
+    end
+    if remark == ""
+        remark = "Created by SPM.jl"
+    end
+
+    data = surface.data .- minimum(surface.data)
+    max_val = maximum(data)
+    max_converted = 2^16 - 1
+    converted_data = round.(UInt16, data ./ max_val .* max_converted)
+
+    data_volume_y, data_volume_x = size(surface.data)
+    y_end, x_end = size(surface.data) .* surface.resolution
+    lines = [
+        ":STM data",
+        "\tformat vertion", "100",
+        "\t:date; time",
+            Dates.format(now, "yyyy/mm/dd"), Dates.format(now, "H:M:S"),
+        "\t:sample name", sample_name,
+        "\t:remark", remark,
+        "\t:ascii flag; data type(2=byte; 3=+-byte; 4=word; 5=+-word; 8=float)", "0 4",
+        "\t:data volume(x*y)", "$(data_volume_x)  $(data_volume_y)",
+        "\t:x;y dimension(1=Length;2=Time;3=Current;4=Vt;5=Tmp;6=/L;7=/T;8=other)", "1 1",
+        "\t:x_data -> unit; start; end; log flag", string(unit), "0 $(string(x_end)) 0",
+        "\t:y_data -> unit; start; end; log flag", string(unit), "0 $(string(y_end)) 0",
+        "\t:z_data -> unit; max; min; (max; mini)(before conversion); log flag",
+            string(unit), "$(max_converted) 0 $(max_val) 0.0 0",
+        "\t:reserved", "0 0 0 0",
+        "\t:stm voltage unit; stm current unit; A/D name", "V", "nA", "unknown",
+        "a"
+    ]
+    open(dist_path, "w") do f
+        for line in lines
+            println(f, line*"\r")
+        end
+    end
+
+    dat_path = replace(dist_path, ".hdr" => ".dat")
+    open(dat_path, "w") do f
+        write(f, converted_data)
+    end
+
+    return true
 end
 
 end

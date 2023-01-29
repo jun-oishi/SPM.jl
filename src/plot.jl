@@ -1,6 +1,6 @@
 module Plot
 
-using ..SPMCore
+using ..SPMCore, ..Unitful
 import Plots
 
 function heatmap(

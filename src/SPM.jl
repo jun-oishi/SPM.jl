@@ -1,10 +1,10 @@
 module SPM
 
-# Write your package code here.
+using Unitful
 
 include("spm_core.jl")
-include("btr.jl")
 include("hdr.jl")
+include("btr.jl")
 include("plot.jl")
 
 using .SPMCore  # SPMをincludeすればSPMCore下

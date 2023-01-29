@@ -1,10 +1,11 @@
 module BTR
 
 using ..SPMCore
+import ..HDR
 import Statistics.mean
 import MDToolbox as MDT
 import Flux
-import Dates.now
+import Dates
 
 # TODO : chainrulescore.rruleが定義されているか確認
 
@@ -52,6 +53,40 @@ struct VillarrubiaBTRResult <: BTRResult
 end
 OriginalBTRResult = VillarrubiaBTRResult
 
+function saveResult(
+    result::VillarrubiaBTRResult, filename::String; timestamp::Bool=true
+)::Bool
+    sample_name = filename
+    if timestamp
+        filename = filename * "_" * Dates.format(Dates.now(), "yyyymmdd_HMS")
+        sample_name = filename
+    end
+    filename = filename * ".hdr"
+
+    remark = "Villarrubia BRT result: threshold=$(result.threshold) => loss=$(result.loss)"
+    HDR.saveHDR(result.tip, filename; sample_name = sample_name, remark=remark)
+    return true
+end
+
+function saveResults(
+    source_images::Vector{Image}, results::Vector{VillarrubiaBTRResult}, dirname::String; timestamp::Bool=true
+)::Bool
+    if timestamp
+        dirname = dirname * "_" * Dates.format(Dates.now(), "yyyymmdd_HMS")
+    end
+    mkdir(dirname)
+
+    for (i, image) in enumerate(source_images)
+        HDR.saveHDR(image, joinpath(dirname, "source_$(i).hdr"))
+    end
+
+    for result in results
+        threshold = replace(string(result.threshold), "." => "_")
+        saveResult(result, joinpath(dirname, "result_threshold_$(threshold)"), timestamp=false)
+    end
+    return true
+end
+
 function solveVillarrubiaBTR(
     images::Vector{Image}, tip_size::Integer, threshold::Real
 )::OriginalBTRResult
@@ -87,10 +122,70 @@ solveOriginalBTR = solveVillarrubiaBTR
 struct DifferentiableBTRResult <: BTRResult
     lambda::Real
     max_epoch::Integer
-    min_loss::Real
-    final_tip::Tip
+    tip::Tip        # 最終形状
     loss_minimizing_tip::Tip
     loss_history::Vector{Real}
+end
+
+function saveResult(
+    result::DifferentiableBTRResult, filename::String; timestamp::Bool=true, savehistory::Bool=true
+)::Bool
+    if timestamp
+        filename = filename * "_" * Dates.format(Dates.now(), "yyyymmdd_HMS")
+    end
+
+    lambda = replace(string(result.lambda), "." => "_")
+    max_epoch = result.max_epoch
+    loss_final = replace(string(result.loss_history[end]), "." => "_")
+    remark = "result of differentiable BTR: lambda=$(lambda), epoch=$(max_epoch) => loss=$(loss_final)"
+    HDR.saveHDR(result.tip, filename*"_final.hdr"; remark=remark)
+
+    min_loss_epoch = argmin(result.loss_history)
+    min_loss = replace(string(result.loss_history[min_loss_epoch]), "." => "_")
+    remark = "result of differentiable BTR: lambda=$(lambda), epoch=$(min_loss_epoch) => loss=$(min_loss)"
+    HDR.saveHDR(result.loss_minimizing_tip, filename*"_min_loss.hdr"; remark=remark)
+
+    if savehistory
+        unit = string(DEFAULT_UNIT)
+        open(filename*"_loss_history.csv", "w") do io
+            println(io, "epoch, loss[$(unit)^2]")
+            for (i, loss) in enumerate(result.loss_history)
+                println(io, "$(i), $(loss)")
+            end
+        end
+    end
+
+    return true
+end
+
+function saveResults(
+    source_images::Vector{Image}, results::Vector{DifferentiableBTRResult}, dirname::String; timestamp::Bool=true
+)::Bool
+    if timestamp
+        dirname = dirname * "_" * Dates.format(Dates.now(), "yyyymmdd_HMS")
+    end
+    mkdir(dirname)
+
+    for (i, image) in enumerate(source_images)
+        HDR.saveHDR(image, joinpath(dirname, "source_$(i).hdr"))
+    end
+
+    for result in results
+        lambda = replace(string(result.lambda), "." => "_")
+        saveResult(result, joinpath(dirname, "result_lambda_$(lambda)"), timestamp=false, savehistory=false)
+    end
+
+    max_epoch = results[1].max_epoch
+    open(joinpath(dirname, "loss_history.csv"), "w") do io
+        header = "epoch, " * join(["lambda=$(replace(string(result.lambda), "." => "_"))" for result in results], ", ")
+        println(io, header)
+        for i in 1:max_epoch
+            loss = join([string(result.loss_history[i]) for result in results], ", ")
+            println(io, "$(i), $(loss)")
+        end
+    end
+
+    return true
 end
 
 Flux.@functor Tip (data,)
@@ -121,7 +216,7 @@ function solveDifferentiableBTR(
 
     loss_train = Vector{Float64}(undef, max_epoch)
     min_loss = Inf
-    t_ini = now()
+    t_ini = Dates.now()
     for epoch in 1:max_epoch
         for (x, y) in train_loader
             gs = Flux.gradient(() -> loss(x, y), ps)
@@ -138,11 +233,11 @@ function solveDifferentiableBTR(
         loss_train[epoch] = loss(images_copy, images)
 
         if epoch % debug_interval == 0
-            @info "$(Threads.threadid())th thread : $(epoch)th epoch completed in $((now() - t_ini).value/1000) sec"
+            @info "$(Threads.threadid())th thread : $(epoch)th epoch completed in $((Dates.now() - t_ini).value/1000) sec"
         end
     end
 
-    DifferentiableBTRResult(lambda, max_epoch, min_loss, tip, min_loss_tip, loss_train)
+    DifferentiableBTRResult(lambda, max_epoch, tip, min_loss_tip, loss_train)
 end
 
 function solveDifferentiableBTR(

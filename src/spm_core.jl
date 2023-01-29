@@ -3,8 +3,7 @@ STMデータを扱うためのモジュール
 """
 module SPMCore
 
-import DelimitedFiles.readdlm
-using Plots, Unitful
+using ..Unitful
 
 export DEFAULT_UNIT
 export Image, loadImage, extract, filter, horz_diff, vert_diff
@@ -48,13 +47,72 @@ end
     # Returns
     - Image
 """
-function extract(from::Image, lowerleft::Tuple{Integer,Integer}, size::Tuple{Integer,Integer})::Image
+function extract(from::Image, lowerleft::Tuple, extract_size::Tuple)::Image
     low = lowerleft[2]
     left = lowerleft[1]
-    high = low + size[2] - 1
-    right = left + size[1] - 1
+    if (low < 1 || left < 1)
+        throw(ArgumentError("Invalid lowerleft."))
+    end
+
+    high = low + extract_size[2] - 1
+    right = left + extract_size[1] - 1
+    if (high > size(from.data, 1) || right > size(from.data, 2))
+        throw(ArgumentError("Invalid size."))
+    end
+
     data = from.data[low:high, left:right]
     return Image(data, from.resolution)
+end
+
+"""
+    # Summary
+    - 1枚の画像から複数の同じサイズの画像を切り出す
+    # Parameters
+    - from: 元画像
+    - lowerleft: 左下の座標(ix,iy) (px)を並べたベクトル
+    - size: 抽出するサイズ(x,y) (px)
+    # Returns
+    - Vector{Image}
+"""
+function extract(
+    from::Image, lowerleft::Vector, size::Tuple
+)::Vector{Image}
+    ret = Vector{Image}(undef, length(lowerleft))
+    for i in 1:length(lowerleft)
+        ret[i] = extract(from, lowerleft[i], size)
+    end
+    return ret
+end
+
+"""
+    # Summary
+    - 複数の画像から複数の同じサイズの画像を切り出す
+    # Parameters
+    - from: 元画像
+    - lowerleft: 左下の座標(ix,iy) (px)のベクトルのベクトル
+    - size: 抽出するサイズ(x,y) (px)
+    - flatten: 1次元配列にするかどうか (default: false)
+    # Returns
+    - Vector{Image} or Vector{Vector{Image}}
+"""
+function extract(
+    from::Vector{Image}, lowerleft::Vector, size::Tuple;
+    flatten=false
+)::Union{Vector{Image}, Vector{Vector{Image}}}
+    if (length(lowerleft) != length(size))
+        throw(ArgumentError("length(lowerleft) must be equal to length(size)."))
+    end
+
+    ret = Vector{Vector{Image}}(undef, length(from))
+    for i in 1:length(from)
+        ret[i] = extract(from[i], lowerleft[i], size)
+    end
+
+    if flatten
+        return reduce(vcat, ret)
+    else
+        return ret
+    end
 end
 
 """
