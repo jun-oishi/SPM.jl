@@ -18,14 +18,14 @@ function ierosion(image::Image, tip::Tip)::Image
     if !match(image, tip)
         throw(ArgumentError("image and tip must have the same resolution"))
     end
-    return Image(MDT.ierosion(image.data, tip.data); resolution=image.resolution)
+    return Image(MDT.ierosion(image.data, tip.data), image.resolution)
 end
 
 function idilation(image::Image, tip::Tip)::Image
     if !match(image, tip)
         throw(ArgumentError("image and tip must have the same resolution"))
     end
-    return Image(MDT.idilation(image.data, tip.data); resolution=image.resolution)
+    return Image(MDT.idilation(image.data, tip.data), image.resolution)
 end
 
 function opening(image::Image, tip::Tip)::Image
@@ -36,7 +36,7 @@ function genFlatTip(
     px_size::Integer, resolution::AbstractFloat;
     datatype::DataType=Float64
 )::Tip
-    return Tip(zeros(datatype, px_size, px_size); resolution=resolution)
+    return Tip(zeros(datatype, px_size, px_size), resolution)
 end
 
 function genFlatTip(px_size::Integer, image::Image)::Tip
@@ -58,7 +58,7 @@ function solveVillarrubiaBTR(
     P = zeros(eltype(images[1].data), tip_size, tip_size)
     imageData = [image.data for image in images]
     MDT.itip_estimate!(P, imageData; thresh=threshold)
-    tip = Tip(P; resolution=images[1].resolution)
+    tip = Tip(P, images[1].resolution)
 
     loss = 0.0
     for image in images

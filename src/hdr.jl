@@ -69,11 +69,11 @@ function loadHDR(filename::String)::Image
     open(dat_filename, "r") do io
         read!(io, data)
     end
-    data = data * (file.max_realheight / file.max_binval) * 10.0 # \AA
+    data = data * (file.max_realheight / file.max_binval) # nm
 
-    resolution = file.width * 10.0 / size(data, 1) # \AA / px
+    resolution = file.width / size(data, 1) # nm / px
 
-    return Image(data; resolution=resolution)
+    return Image(data, resolution)
 end
 
 end

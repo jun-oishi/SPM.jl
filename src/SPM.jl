@@ -5,6 +5,7 @@ module SPM
 include("spm_core.jl")
 include("btr.jl")
 include("hdr.jl")
+include("plot.jl")
 
 using .SPMCore  # SPMをincludeすればSPMCore下
 

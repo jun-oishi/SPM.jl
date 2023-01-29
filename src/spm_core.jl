@@ -4,9 +4,9 @@ STMデータを扱うためのモジュール
 module SPMCore
 
 import DelimitedFiles.readdlm
-using Plots, PyPlot
+using Plots, Unitful
 
-export Surface, showHeatmap
+export DEFAULT_UNIT
 export Image, loadImage, extract, filter, horz_diff, vert_diff
 export Tip
 
@@ -18,42 +18,11 @@ is_square(x::AbstractMatrix) = size(x, 1) == size(x, 2)
 
 throw_if(x::Bool, msg::String) = x && throw(ArgumentError(msg))
 
+const DEFAULT_UNIT = u"nm"
+
 abstract type Surface end
 (s::Surface)(x::Integer, y::Integer) = s.data[y, x]
 (s::Surface)(xrange::UnitRange, yrange::UnitRange) = s.data[yrange, xrange]
-
-function showHeatmap(
-    surface::Surface;
-    title::String="", legend=true
-)::Plots.Plot
-    x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution / 10.0
-    y_mesh = collect(1:size(surface.data, 2)) .* surface.resolution / 10.0
-    ret = heatmap(
-        x_mesh, y_mesh, surface.data, xlabel="x (nm)", ylabel="y (nm)",
-        title=title, aspect_ratio=:equal, legend=legend
-    )
-    return ret
-end
-
-function addProfilePlot!(
-        plot::Plots.Plot, surface::Surface, direction::Symbol, i_slice::Integer;
-        title::String="", label::String=""
-)::Plots.Plot
-    if direction == :x
-        x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution / 10.0
-        y_mesh = surface.data[:, i_slice]
-    elseif direction == :y
-        x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution / 10.0
-        y_mesh = surface.data[i_slice, :]
-    else
-        throw(ArgumentError("direction must be :x or :y"))
-    end
-    ret = plot!(
-        plot, x_mesh, y_mesh, xlabel="horz. dist. (nm)", ylabel="height (nm)",
-        title=title, label=label
-    )
-    return ret
-end
 
 ########################################################
 ### Image ##############################################
@@ -63,44 +32,12 @@ end
     # Summary
     - 画像データを扱うための型
     # Fields
-    - data: 画像データ
-    - resolution: 解像度 (AA / px)
-    - width: 幅 (AA)
-    - height: 高さ (AA)
+    - data: 画像データ (nm)
+    - resolution: 解像度 (nm / px)
 """
 struct Image <: Surface
     data::Matrix
-    resolution::AbstractFloat  # \AA / px
-    width::AbstractFloat       # \AA
-    height::AbstractFloat      # \AA
-
-    """
-        # Parameters
-        - data: 画像データ
-        - resolution: 解像度 (AA / px)
-    """
-    function Image(data::Matrix; resolution::AbstractFloat)
-        return new(data, resolution, resolution * size(data, 1), resolution * size(data, 2))
-    end
-end
-
-"""
-    # Parameters
-    - src: ファイルパス
-    - scan_size: スキャンサイズ (AA)
-    - datatype: データ型
-    - delimiter: 区切り文字
-    - skipstart: 先頭何行を読み飛ばすか
-    # Returns
-    - Image
-"""
-function loadImage(
-    src::String, scan_size::AbstractFloat;
-    datatype::DataType=Float64, delimiter::Char='\t', skipstart::Integer=4
-)::Image
-    data = readdlm(src, delimiter, datatype; skipstart=skipstart)
-    throw_if(!is_square(data), "Data must be square.")
-    return Image(data; resolution=scan_size / size(data, 1))
+    resolution::AbstractFloat
 end
 
 """
@@ -117,7 +54,7 @@ function extract(from::Image, lowerleft::Tuple{Integer,Integer}, size::Tuple{Int
     high = low + size[2] - 1
     right = left + size[1] - 1
     data = from.data[low:high, left:right]
-    return Image(data; resolution = from.resolution)
+    return Image(data, from.resolution)
 end
 
 """
@@ -186,23 +123,15 @@ end
     # Summary
     - チップデータを扱うための型
     # Fields
-    - data: チップデータ
-    - resolution: 解像度 (AA / px)
-    - size: サイズ (AA)
+    - data: チップデータ (nm)
+    - resolution: 解像度 (nm / px)
     # Constructor Parameters
     - data: チップデータ
-    - resolution: 解像度 (AA / px)
+    - resolution: 解像度 (nm / px)
 """
 struct Tip <: Surface
     data::Matrix
-    resolution::AbstractFloat      # \AA / px
-    size::AbstractFloat            # \AA : 正方形のみを許容
-
-    function Tip(data::Matrix; resolution::AbstractFloat)::Tip
-        throw_if(!is_square(data), "Data must be square.")
-        return new(data, resolution, resolution * size(data, 1))
-    end
-
+    resolution::AbstractFloat
 end
 
 end
