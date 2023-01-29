@@ -3,12 +3,20 @@ module Plot
 using ..SPMCore, ..Unitful
 import Plots
 
+"""
+    # Parameters
+    - surface: Surface
+    - title: タイトル
+    - legend: 凡例の表示, デフォルトはtrue
+    # Returns
+    - Plots.Plot
+"""
 function heatmap(
     surface::SPMCore.Surface;
     title::String="", legend=true
 )::Plots.Plot
-    x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
-    y_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
+    x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
+    y_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
     ret = Plots.heatmap(
         x_mesh, y_mesh, surface.data .* DEFAULT_UNIT,
         title=title, aspect_ratio=:equal, legend=legend

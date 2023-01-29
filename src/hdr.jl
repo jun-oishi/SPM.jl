@@ -72,7 +72,7 @@ function loadHDR(filename::String)::Image
     open(dat_filename, "r") do io
         read!(io, data)
     end
-    data = data * (file.max_realheight / file.max_binval) # nm
+    data = data' * (file.max_realheight / file.max_binval) # nm
 
     resolution = file.width / size(data, 1) # nm / px
 
@@ -81,12 +81,18 @@ end
 
 function saveHDR(
     surface::SPMCore.Surface, dist_path::String;
-    unit::Unitful.FreeUnits=DEFAULT_UNIT, sample_name="", remark="", now=Dates.now()
+    unit::Unitful.FreeUnits=DEFAULT_UNIT,
+    sample_name="", remark="", now=Dates.now(),
+    overwrite=false
 )::Bool
     if !occursin(".hdr", dist_path)
         throw(ArgumentError("File extension must be .hdr"))
     elseif isfile(dist_path)
-        throw(ArgumentError("File already exists: $(dist_path)"))
+        if overwrite
+            @info "File already exists: $(dist_path). Overwrite."
+        else
+            throw(ArgumentError("File already exists: $(dist_path)"))
+        end
     end
 
     # ヘッダファイルの書き込み
@@ -97,7 +103,7 @@ function saveHDR(
         remark = "Created by SPM.jl"
     end
 
-    data = surface.data .- minimum(surface.data)
+    data = surface.data' .- minimum(surface.data)
     max_val = maximum(data)
     max_converted = 2^16 - 1
     converted_data = round.(UInt16, data ./ max_val .* max_converted)
