@@ -24,7 +24,7 @@ abstract type Surface end
 
 function showHeatmap(
     surface::Surface;
-    title::String="", legend=false
+    title::String="", legend=true
 )::Plots.Plot
     x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution / 10.0
     y_mesh = collect(1:size(surface.data, 2)) .* surface.resolution / 10.0
