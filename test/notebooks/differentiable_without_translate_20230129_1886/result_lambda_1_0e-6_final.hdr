@@ -1,0 +1,32 @@
+:STM data
+	format vertion
+100
+	:date; time
+2023/01/29
+18:8:6
+	:sample name
+result_lambda_1_0e-6_final
+	:remark
+result of differentiable BTR: lambda=1_0e-6, epoch=50 => loss=0_7000185140153068
+	:ascii flag; data type(2=byte; 3=+-byte; 4=word; 5=+-word; 8=float)
+0 4
+	:data volume(x*y)
+64  64
+	:x;y dimension(1=Length;2=Time;3=Current;4=Vt;5=Tmp;6=/L;7=/T;8=other)
+1 1
+	:x_data -> unit; start; end; log flag
+nm
+0 12.5 0
+	:y_data -> unit; start; end; log flag
+nm
+0 12.5 0
+	:z_data -> unit; max; min; (max; mini)(before conversion); log flag
+nm
+65535 0 21.290290419529523 0.0 0
+	:reserved
+0 0 0 0
+	:stm voltage unit; stm current unit; A/D name
+V
+nA
+unknown
+a
