@@ -6,6 +6,7 @@ import Statistics.mean
 import MDToolbox as MDT
 import Flux
 import Dates
+import Printf.@sprintf
 
 # TODO : chainrulescore.rruleが定義されているか確認
 
@@ -81,7 +82,7 @@ function saveResults(
     end
 
     for result in results
-        threshold = replace(string(result.threshold), "." => "_")
+        threshold = replace(@sprintf("%.3e", result.threshold), "." => "_")
         saveResult(result, joinpath(dirname, "result_threshold_$(threshold)"), timestamp=false)
     end
     return true
@@ -124,7 +125,7 @@ struct DifferentiableBTRResult <: BTRResult
     max_epoch::Integer
     tip::Tip        # 最終形状
     loss_minimizing_tip::Tip
-    loss_history::Vector{Real}
+    loss_history::Vector{<:Real}
 end
 
 function saveResult(
@@ -134,7 +135,7 @@ function saveResult(
         filename = filename * "_" * Dates.format(Dates.now(), "yyyymmdd_HMS")
     end
 
-    lambda = replace(string(result.lambda), "." => "_")
+    lambda = @sprintf("%.8f", result.lambda)
     max_epoch = result.max_epoch
     loss_final = replace(string(result.loss_history[end]), "." => "_")
     remark = "result of differentiable BTR: lambda=$(lambda), epoch=$(max_epoch) => loss=$(loss_final)"
@@ -171,13 +172,13 @@ function saveResults(
     end
 
     for result in results
-        lambda = replace(string(result.lambda), "." => "_")
+        lambda = replace(@sprintf("%.3e", result.lambda), "." => "_")
         saveResult(result, joinpath(dirname, "result_lambda_$(lambda)"), timestamp=false, savehistory=false)
     end
 
     max_epoch = results[1].max_epoch
     open(joinpath(dirname, "loss_history.csv"), "w") do io
-        header = "epoch, " * join(["lambda=$(replace(string(result.lambda), "." => "_"))" for result in results], ", ")
+        header = "epoch, " * join(["lambda=$(@sprintf("%.8e", result.lambda))" for result in results], ", ")
         println(io, header)
         for i in 1:max_epoch
             loss = join([string(result.loss_history[i]) for result in results], ", ")
@@ -195,6 +196,14 @@ function solveDifferentiableBTR(
         images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambda::Real;
         debug_interval=20
 )::DifferentiableBTRResult
+    resolution = images[1].resolution
+    for image in images
+        if image.resolution != resolution
+            @error "resolution of images are not same. aborting..."
+            return
+        end
+    end
+
     images_copy = deepcopy(images)
 
     tip = genFlatTip(tip_size, images[1].resolution)
@@ -241,7 +250,7 @@ function solveDifferentiableBTR(
 end
 
 function solveDifferentiableBTR(
-    images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambdas::Vector;
+    images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambdas::Vector{<:Real};
     debug_interval=20
 )::Vector{DifferentiableBTRResult}
     ret = Vector{DifferentiableBTRResult}(undef, length(lambdas))
