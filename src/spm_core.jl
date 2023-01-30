@@ -4,6 +4,7 @@ STMデータを扱うためのモジュール
 module SPMCore
 
 using ..Unitful
+using ..CUDA
 
 export DEFAULT_UNIT
 export Image, loadImage, extract, filter, horz_diff, vert_diff
@@ -35,7 +36,7 @@ abstract type Surface end
     - resolution: 解像度 (nm / px)
 """
 struct Image <: Surface
-    data::Matrix
+    data::DenseMatrix{<:Real}
     resolution::AbstractFloat
 end
 
@@ -125,7 +126,7 @@ end
     # Returns
     - Image
 """
-function filter(from::Image, filter::Matrix; trim::Bool=true)::Image
+function filter(from::Image, filter::DenseMatrix{<:Real}; trim::Bool=true)::Image
     if (size(filter, 1) % 2 == 0 || size(filter, 2) % 2 == 0)
         throw(ArgumentError("Filter size must be odd."))
     end
@@ -188,7 +189,7 @@ end
     - resolution: 解像度 (nm / px)
 """
 struct Tip <: Surface
-    data::Matrix
+    data::DenseMatrix{<:Real}
     resolution::AbstractFloat
 end
 

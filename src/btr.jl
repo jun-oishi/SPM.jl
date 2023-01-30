@@ -1,6 +1,8 @@
 module BTR
 
 using ..SPMCore
+using ..CUDA
+
 import ..HDR
 import Statistics.mean
 import MDToolbox as MDT
@@ -35,10 +37,15 @@ function opening(image::Image, tip::Tip)::Image
 end
 
 function genFlatTip(
-    px_size::Integer, resolution::AbstractFloat;
-    datatype::DataType=Float64
+    px_size::Integer, resolution::Real;
+    datatype::DataType=Float64, use_cuda::Bool=false
 )::Tip
-    return Tip(zeros(datatype, px_size, px_size), resolution)
+    if use_cuda
+        data = CUDA.zeros(datatype, px_size, px_size)
+    else
+        data = zeros(datatype, px_size, px_size)
+    end
+    return Tip(data, resolution)
 end
 
 function genFlatTip(px_size::Integer, image::Image)::Tip
@@ -194,7 +201,7 @@ Flux.@functor Tip (data,)
 
 function solveDifferentiableBTR(
         images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambda::Real;
-        debug_interval=20
+        debug_interval=20, need_loss_minimizing=false, use_cuda = false
 )::DifferentiableBTRResult
     resolution = images[1].resolution
     for image in images
@@ -204,44 +211,73 @@ function solveDifferentiableBTR(
         end
     end
 
-    images_copy = deepcopy(images)
+    if use_cuda
+        image_data = CuMatrix{Float32}([image.data for image in images])
+        image_data_copy = deepcopy(image_data)
 
-    tip = genFlatTip(tip_size, images[1].resolution)
+        tip = genFlatTip(tip_size, images[1].resolution; datatype=Float32, use_cuda=true)
+    else
+        image_data = Matrix{Float64}([image.data for image in images])
+        image_data_copy = deepcopy(image_data)
+
+        tip = genFlatTip(tip_size, images[1].resolution; datatype=Float64, use_cuda=false)
+    end
+
     min_loss_tip = deepcopy(tip)
 
-    loss(vim_cp::Vector{Image}, vim::Vector{Image}) = mean(Flux.Losses.mse.(tip.([im.data for im in vim_cp]), [im.data for im in vim]))
+    # MatrixまたはCuMatrixのベクトルを受け取ることを意図
+    loss(v_mat_cp, v_mat) = mean(Flux.Losses.mse.(tip.(v_mat_cp), v_mat))
 
     # 訓練するモデルを与える
     ps = Flux.params(tip)
 
     # 訓練データを与える
     train_loader = Flux.Data.DataLoader(
-        (data=images_copy, label=images), batchsize=1, shuffle=false
+        (data=image_data_copy, label=image_data), batchsize=1, shuffle=false
     )
 
     # 最適化手法を指定する
     opt = Flux.ADAMW(1.0, (0.9, 0.999), lambda)
     @info "$(Threads.threadid())th thread : optimizer setup completed"
 
-    loss_train = Vector{Float64}(undef, max_epoch)
-    min_loss = Inf
     t_ini = Dates.now()
-    for epoch in 1:max_epoch
-        for (x, y) in train_loader
-            gs = Flux.gradient(() -> loss(x, y), ps)
-            Flux.Optimise.update!(opt, ps, gs)
-            tip.data .= min.(tip.data, 0.0)
-            tip.data .= MDT.translate_tip_mean(tip.data)
-        end
-        epoch_loss = loss(images_copy, images)
-        if epoch_loss < min_loss
-            min_loss = epoch_loss
-            min_loss_tip = deepcopy(tip)
-        end
 
-        loss_train[epoch] = loss(images_copy, images)
-
-        if epoch % debug_interval == 0
+    epoch = 0
+    n_interval = div(max_epoch, debug_interval)
+    max_epoch = n_interval * debug_interval
+    loss_train = Vector{Float64}(undef, max_epoch)
+    min_loss_tip = deepcopy(tip)
+    if need_loss_minimizing
+        min_loss = -Inf
+        for interval in 1:n_interval
+            for i in 1:debug_interval
+                epoch += 1
+                for (x, y) in train_loader
+                    gs = Flux.gradient(() -> loss(x, y), ps)
+                    Flux.Optimise.update!(opt, ps, gs)
+                    tip.data .= min.(tip.data, 0.0)
+                    tip.data .= MDT.translate_tip_mean(tip.data)
+                end
+                loss_train[epoch] = loss(image_data_copy, image_data)
+                if loss_train[epoch] < min_loss
+                    min_loss = loss_train[epoch]
+                    min_loss_tip.data .= tip.data
+                end
+            end
+            @info "$(Threads.threadid())th thread : $(epoch)th epoch completed in $((Dates.now() - t_ini).value/1000) sec"
+        end
+    else
+        for interval in 1:n_interval
+            for i in 1:debug_interval
+                epoch += 1
+                for (x, y) in train_loader
+                    gs = Flux.gradient(() -> loss(x, y), ps)
+                    Flux.Optimise.update!(opt, ps, gs)
+                    tip.data .= min.(tip.data, 0.0)
+                    tip.data .= MDT.translate_tip_mean(tip.data)
+                end
+                loss_train[epoch] = loss(image_data_copy, image_data)
+            end
             @info "$(Threads.threadid())th thread : $(epoch)th epoch completed in $((Dates.now() - t_ini).value/1000) sec"
         end
     end

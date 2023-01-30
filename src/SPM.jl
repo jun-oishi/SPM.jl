@@ -1,6 +1,7 @@
 module SPM
 
 using Unitful
+using CUDA
 
 include("spm_core.jl")
 include("hdr.jl")
