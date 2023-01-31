@@ -287,16 +287,26 @@ end
 
 function solveDifferentiableBTR(
     images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambdas::Vector{<:Real};
-    debug_interval=20
+    debug_interval=20, save_on_each_lambda=false, use_cuda = false
 )::Vector{DifferentiableBTRResult}
     ret = Vector{DifferentiableBTRResult}(undef, length(lambdas))
     Threads.@threads for it in eachindex(lambdas)
         if typeof(lambdas[it]) <: Real
             @info "$(Threads.threadid())th thread : start solving for lambda = $(lambdas[it])"
-            ret[it] = solveDifferentiableBTR(images, tip_size, max_epoch, lambdas[it]; debug_interval=debug_interval)
+            ret[it] = solveDifferentiableBTR(
+                images, tip_size, max_epoch, lambdas[it];
+                debug_interval=debug_interval, use_cuda=use_cuda
+            )
         else
             @warn "lambdas[$(it)] is not a Real. skipping..."
             continue
+        end
+        if save_on_each_lambda
+            dirname = "result_$(replace(@sprintf("%.3e", lambdas[it]), "." => "_"))"
+            if !isdir(dirname)
+                mkpath(dirname)
+            end
+            saveResult(dirname, ret[it])
         end
         @info "$(Threads.threadid())th thread : $(it)th lambda completed"
     end
