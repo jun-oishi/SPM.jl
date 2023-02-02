@@ -212,15 +212,16 @@ function solveDifferentiableBTR(
     end
 
     if use_cuda
-        image_data = CuMatrix{Float32}([image.data for image in images])
+        image_data = Vector{CuMatrix{Float32}}([Float32.(image.data) for image in images])
         image_data_copy = deepcopy(image_data)
 
         tip = genFlatTip(tip_size, images[1].resolution; datatype=Float32, use_cuda=true)
     else
-        image_data = Matrix{Float64}([image.data for image in images])
+        d_type = typeof(images[1].data[1,1])
+        image_data = Vector{Matrix{d_type}}([image.data for image in images])
         image_data_copy = deepcopy(image_data)
 
-        tip = genFlatTip(tip_size, images[1].resolution; datatype=Float64, use_cuda=false)
+        tip = genFlatTip(tip_size, images[1].resolution; datatype=d_type, use_cuda=false)
     end
 
     min_loss_tip = deepcopy(tip)
