@@ -1,4 +1,4 @@
-module Plot
+module Plots
 
 using ..SPMCore, ..Unitful
 import Plots
@@ -24,10 +24,12 @@ function heatmap(
     return ret
 end
 
-function plotProfile(
-        surface::SPMCore.Surface, direction::Symbol, i_slice::Integer;
-        title::String="", label::String=""
+function plotProfile!(
+        plot::Union{Plots.Plot,Nothing}, surface::SPMCore.Surface, direction::Symbol, i_slice::Integer; kw...
 )::Plots.Plot
+    if plot === nothing
+        plot = Plots.plot()
+    end
     if direction == :x
         x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
         y_mesh = surface.data[:, i_slice] * DEFAULT_UNIT
@@ -37,7 +39,13 @@ function plotProfile(
     else
         throw(ArgumentError("direction must be :x or :y"))
     end
-    return Plots.plot(x_mesh, y_mesh, title=title, label=label)
+    return Plots.plot!(plot, x_mesh, y_mesh; kw...)
 end
 
+function plotProfile(
+        surface::SPMCore.Surface, direction::Symbol, i_slice::Integer; kw...
+)::Plots.Plot
+    return plotProfile!(nothing, surface, direction, i_slice; kw...)
 end
+
+end # module Plot

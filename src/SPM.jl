@@ -6,7 +6,7 @@ using CUDA
 include("spm_core.jl")
 include("hdr.jl")
 include("btr.jl")
-include("plot.jl")
+include("plots.jl")
 
 using .SPMCore  # SPMをincludeすればSPMCore下
 
