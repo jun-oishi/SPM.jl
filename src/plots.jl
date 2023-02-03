@@ -1,4 +1,4 @@
-module Plots
+module SPMPlots
 
 using ..SPMCore, ..Unitful
 import Plots
