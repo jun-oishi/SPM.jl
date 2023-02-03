@@ -5,6 +5,8 @@ using Unitful
 
 import Dates
 
+# TODO : 上下がgwyddionと反転しているようなので修正したい
+
 mutable struct HDRFile
     volume::Tuple{Integer, Integer}
     width::AbstractFloat
