@@ -1,0 +1,32 @@
+:STM data
+	format vertion
+100
+	:date; time
+2023/02/03
+10:36:54
+	:sample name
+source_5
+	:remark
+Created by SPM.jl
+	:ascii flag; data type(2=byte; 3=+-byte; 4=word; 5=+-word; 8=float)
+0 4
+	:data volume(x*y)
+60  60
+	:x;y dimension(1=Length;2=Time;3=Current;4=Vt;5=Tmp;6=/L;7=/T;8=other)
+1 1
+	:x_data -> unit; start; end; log flag
+nm
+0 11.71875 0
+	:y_data -> unit; start; end; log flag
+nm
+0 11.71875 0
+	:z_data -> unit; max; min; (max; mini)(before conversion); log flag
+nm
+65535 0 1.041056282719158 0.0 0
+	:reserved
+0 0 0 0
+	:stm voltage unit; stm current unit; A/D name
+V
+nA
+unknown
+a
