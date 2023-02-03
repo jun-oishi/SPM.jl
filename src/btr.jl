@@ -13,7 +13,7 @@ import Printf.@sprintf
 # TODO : chainrulescore.rruleが定義されているか確認
 
 ########################################################
-### BTR ################################################
+### utilities ##########################################
 ########################################################
 
 match(image::Image, tip::Tip) = image.resolution == tip.resolution
@@ -52,7 +52,24 @@ function genFlatTip(px_size::Integer, image::Image)::Tip
     return genFlatTip(px_size, image.resolution; datatype=eltype(image.data))
 end
 
+"""
+    # Summary
+    - 行列をratio倍に拡大する
+    # Parameters
+    - mat: 拡大する行列
+    - ratio: 拡大倍率
+    # Returns
+    - matの行数と列数をratio倍に拡大した行列
+"""
+function upscaleMatrix(mat::AbstractMatrix, ratio::Integer)::AbstractMatrix
+    return [ mat[div(i,ratio)+1, div(j,ratio)+1] for i in 0:ratio*size(mat, 1)-1, j in 0:ratio*size(mat, 2)-1 ]
+end
+
 abstract type BTRResult end
+
+########################################################
+### Villarrubia ########################################
+########################################################
 
 struct VillarrubiaBTRResult <: BTRResult
     tip::Tip
@@ -197,37 +214,40 @@ function saveResults(
 end
 
 Flux.@functor Tip (data,)
-(m::Tip)(image_data) = MDT.idilation(MDT.ierosion(image_data, m.data), m.data)
 
 function solveDifferentiableBTR(
-        images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambda::Real;
-        debug_interval=20, need_loss_minimizing=false, use_cuda = false
+    images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambda::Real;
+    debug_interval=20, need_loss_minimizing=false, use_cuda=false, downscale_ratio::Integer=1
 )::DifferentiableBTRResult
-    resolution = images[1].resolution
+    # TODO downscaleの実装
+    image_resolution = images[1].resolution
     for image in images
-        if image.resolution != resolution
+        if image.resolution != image_resolution
             @error "resolution of images are not same. aborting..."
             return
         end
     end
 
+    tip_resolution = image_resolution * downscale_ratio
+
     if use_cuda
         image_data = Vector{CuMatrix{Float32}}([Float32.(image.data) for image in images])
         image_data_copy = deepcopy(image_data)
 
-        tip = genFlatTip(tip_size, images[1].resolution; datatype=Float32, use_cuda=true)
+        tip = genFlatTip(tip_size, tip_resolution; datatype=Float32, use_cuda=true)
     else
-        d_type = typeof(images[1].data[1,1])
+        d_type = typeof(images[1].data[1, 1])
         image_data = Vector{Matrix{d_type}}([image.data for image in images])
         image_data_copy = deepcopy(image_data)
 
-        tip = genFlatTip(tip_size, images[1].resolution; datatype=d_type, use_cuda=false)
+        tip = genFlatTip(tip_size, tip_resolution; datatype=d_type, use_cuda=false)
     end
 
-    min_loss_tip = deepcopy(tip)
-
-    # MatrixまたはCuMatrixのベクトルを受け取ることを意図
-    loss(v_mat_cp, v_mat) = mean(Flux.Losses.mse.(tip.(v_mat_cp), v_mat))
+    function loss(v_mat_cp, v_mat)
+        tip_data = upscaleMatrix(tip.data, downscale_ratio)
+        opened = [MDT.idilation(MDT.ierosion(mat_cp, tip_data), tip_data) for mat_cp in v_mat_cp]
+        return mean(Flux.Losses.mse.(opened, v_mat))
+    end
 
     # 訓練するモデルを与える
     ps = Flux.params(tip)
@@ -243,13 +263,15 @@ function solveDifferentiableBTR(
 
     t_ini = Dates.now()
 
-    epoch = 0
+    debug_interval = debug_interval == 0 ? max_epoch : debug_interval
     n_interval = div(max_epoch, debug_interval)
     max_epoch = n_interval * debug_interval
+
     loss_train = Vector{Float64}(undef, max_epoch)
     min_loss_tip = deepcopy(tip)
+    min_loss = -Inf
+    epoch = 0
     if need_loss_minimizing
-        min_loss = -Inf
         for interval in 1:n_interval
             for i in 1:debug_interval
                 epoch += 1
@@ -288,20 +310,15 @@ end
 
 function solveDifferentiableBTR(
     images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambdas::Vector{<:Real};
-    debug_interval=20, save_on_each_lambda=false, use_cuda = false
+    debug_interval=20, save_on_each_lambda=false, use_cuda = false, downscale_ratio::Integer = 1
 )::Vector{DifferentiableBTRResult}
     ret = Vector{DifferentiableBTRResult}(undef, length(lambdas))
     Threads.@threads for it in eachindex(lambdas)
-        if typeof(lambdas[it]) <: Real
-            @info "$(Threads.threadid())th thread : start solving for lambda = $(lambdas[it])"
-            ret[it] = solveDifferentiableBTR(
-                images, tip_size, max_epoch, lambdas[it];
-                debug_interval=debug_interval, use_cuda=use_cuda
-            )
-        else
-            @warn "lambdas[$(it)] is not a Real. skipping..."
-            continue
-        end
+        @info "$(Threads.threadid())th thread : start solving for lambda = $(lambdas[it])"
+        ret[it] = solveDifferentiableBTR(
+            images, tip_size, max_epoch, lambdas[it];
+            debug_interval=debug_interval, use_cuda=use_cuda, downscale_ratio=downscale_ratio
+        )
         if save_on_each_lambda
             dirname = "result_$(replace(@sprintf("%.3e", lambdas[it]), "." => "_"))"
             if !isdir(dirname)
