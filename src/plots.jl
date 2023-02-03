@@ -11,17 +11,16 @@ import Plots
     # Returns
     - Plots.Plot
 """
-function heatmap(
-    surface::SPMCore.Surface;
-    title::String="", legend=true
-)::Plots.Plot
+function heatmap(surface::SPMCore.Surface; kw...)::Plots.Plot
     x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
     y_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
-    ret = Plots.heatmap(
-        x_mesh, y_mesh, surface.data .* DEFAULT_UNIT,
-        title=title, aspect_ratio=:equal, legend=legend
-    )
-    return ret
+    return Plots.heatmap(x_mesh, y_mesh, surface.data .* DEFAULT_UNIT; kw...)
+end
+
+function plot3dView(surface::SPMCore.Surface; kw...)::Plots.Plot
+    x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
+    y_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
+    return Plots.plot(x_mesh, y_mesh, surface.data .* DEFAULT_UNIT, st=:surface; kw...)
 end
 
 function plotProfile!(
