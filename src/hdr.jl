@@ -83,7 +83,7 @@ function saveHDR(
     surface::SPMCore.Surface, dist_path::String;
     unit::Unitful.FreeUnits=DEFAULT_UNIT,
     sample_name="", remark="", now=Dates.now(),
-    overwrite=false
+    overwrite=false, flat_threshold=1e-5
 )::Bool
     if !occursin(".hdr", dist_path)
         throw(ArgumentError("File extension must be .hdr"))
@@ -104,9 +104,15 @@ function saveHDR(
     end
 
     data = surface.data' .- minimum(surface.data)
+    data[isnan.(data)] .= 0
     max_val = maximum(data)
-    max_converted = 2^16 - 1
-    converted_data = round.(UInt16, data ./ max_val .* max_converted)
+    if max_val < flat_threshold
+        max_converted = 1.0
+        converted_data = zeros(UInt16, size(data))
+    else
+        max_converted = 2^16 - 1
+        converted_data = round.(UInt16, data ./ max_val .* max_converted)
+    end
 
     data_volume_y, data_volume_x = size(surface.data)
     y_end, x_end = size(surface.data) .* surface.resolution
