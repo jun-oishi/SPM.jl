@@ -261,16 +261,15 @@ function solveDifferentiableBTR(
     opt = Flux.ADAMW(1.0, (0.9, 0.999), lambda)
     @info "$(Threads.threadid())th thread : optimizer setup completed"
 
-    t_ini = Dates.now()
-
     debug_interval = debug_interval == 0 ? max_epoch : debug_interval
     n_interval = div(max_epoch, debug_interval)
     max_epoch = n_interval * debug_interval
-
     loss_train = Vector{Float64}(undef, max_epoch)
     min_loss_tip = deepcopy(tip)
-    min_loss = -Inf
+    min_loss = Inf
     epoch = 0
+
+    t_ini = Dates.now()
     if need_loss_minimizing
         for interval in 1:n_interval
             for i in 1:debug_interval
@@ -310,14 +309,13 @@ end
 
 function solveDifferentiableBTR(
     images::Vector{Image}, tip_size::Integer, max_epoch::Integer, lambdas::Vector{<:Real};
-    debug_interval=20, save_on_each_lambda=false, use_cuda = false, downscale_ratio::Integer = 1
+    save_on_each_lambda=false, kw...
 )::Vector{DifferentiableBTRResult}
     ret = Vector{DifferentiableBTRResult}(undef, length(lambdas))
     Threads.@threads for it in eachindex(lambdas)
         @info "$(Threads.threadid())th thread : start solving for lambda = $(lambdas[it])"
         ret[it] = solveDifferentiableBTR(
-            images, tip_size, max_epoch, lambdas[it];
-            debug_interval=debug_interval, use_cuda=use_cuda, downscale_ratio=downscale_ratio
+            images, tip_size, max_epoch, lambdas[it]; kw...
         )
         if save_on_each_lambda
             dirname = "result_$(replace(@sprintf("%.3e", lambdas[it]), "." => "_"))"

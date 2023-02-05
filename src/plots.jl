@@ -14,7 +14,7 @@ import Plots
 function heatmap(surface::SPMCore.Surface; kw...)::Plots.Plot
     x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
     y_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
-    return Plots.heatmap(x_mesh, y_mesh, surface.data .* DEFAULT_UNIT; kw...)
+    return Plots.heatmap(x_mesh, y_mesh, surface.data .* DEFAULT_UNIT, aspectratio=:equal; kw...)
 end
 
 function plot3dView(surface::SPMCore.Surface; kw...)::Plots.Plot
