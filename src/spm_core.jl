@@ -38,7 +38,13 @@ abstract type Surface end
 struct Image <: Surface
     data::DenseMatrix{<:Real}
     resolution::AbstractFloat
+
+    function Image(data::DenseMatrix{<:Real}, resolution::AbstractFloat; datatype=Float32)
+        data = Matrix{datatype}(data)
+        return new(data, resolution)
+    end
 end
+
 
 """
     # Parameters

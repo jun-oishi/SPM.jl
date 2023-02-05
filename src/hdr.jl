@@ -17,7 +17,7 @@ mutable struct HDRFile
 end
 HDRFile() = HDRFile((0, 0), 0.0, 0.0, 0, 0, 0.0)
 
-function loadHDR(filename::String)::Image
+function loadHDR(filename::String; outDataType=Float32)::Image
     if !occursin(".hdr", filename)
         throw(ArgumentError("File extension must be .hdr"))
     end
@@ -69,16 +69,17 @@ function loadHDR(filename::String)::Image
         throw(ArgumentError("Unsupported bit length: $(file.binval_bitlength)"))
     end
 
-    data = Matrix{datatype}(undef, file.volume...)
+    raw_data = Matrix{datatype}(undef, file.volume...)
     dat_filename = replace(filename, ".hdr" => ".dat")
     open(dat_filename, "r") do io
-        read!(io, data)
+        read!(io, raw_data)
     end
-    data = data' * (file.max_realheight / file.max_binval) # nm
+    outdata = Matrix{outDataType}(undef, size(raw_data')...)
+    outdata .= raw_data' * (file.max_realheight / file.max_binval) # nm
 
-    resolution = file.width / size(data, 1) # nm / px
+    resolution = file.width / size(raw_data, 1) # nm / px
 
-    return Image(data, resolution)
+    return Image(outdata, resolution)
 end
 
 function saveHDR(
