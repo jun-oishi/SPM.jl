@@ -46,6 +46,10 @@ struct Surface
     function Surface(matrix::Matrix{Float32}, resolution::Float32)
         return Surface(matrix, DEFAULT_UNIT, resolution, DEFAULT_UNIT)
     end
+
+    function Surface(matrix::Matrix{Float32}; mold::Surface)
+        return Surface(matrix, mold.vert_unit, mold.horz_resolution, mold.horz_unit)
+    end
 end
 
 (s::Surface)(x::Integer, y::Integer) = s.matrix[y, x]   # surface(x,y) でs.matrix[y,x]を返す

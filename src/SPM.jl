@@ -2,7 +2,7 @@ module SPM
 
 include("spm_core.jl")
 include("hdr.jl")
-# include("btr.jl")
+include("btr.jl")
 include("plots.jl")
 
 using .SPMCore  # SPMをincludeすればSPMCore下で定義されたものはSPM.で呼び出せる

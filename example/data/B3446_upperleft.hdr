@@ -3,11 +3,11 @@
 100
 	:date; time
 2023/12/21
-14:45:56
+16:54:47
 	:sample name
 B3446_upperleft
 	:remark
-Created by SPM.jl
+remark test
 	:ascii flag; data type(2=byte; 3=+-byte; 4=word; 5=+-word; 8=float)
 0 4
 	:data volume(x*y)
