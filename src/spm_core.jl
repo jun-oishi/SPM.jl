@@ -3,58 +3,64 @@ STMデータを扱うためのモジュール
 """
 module SPMCore
 
-using ..Unitful
-using ..CUDA
-
-export DEFAULT_UNIT
-export Image, loadImage, extract, filter, horz_diff, vert_diff
-export Tip
+export SUPPORTED_UNITS, DEFAULT_UNIT
+export Surface, extract, convolute
 
 ########################################################
 ### utilities ##########################################
 ########################################################
 
-is_square(x::AbstractMatrix) = size(x, 1) == size(x, 2)
-
 throw_if(x::Bool, msg::String) = x && throw(ArgumentError(msg))
 
-const DEFAULT_UNIT = u"nm"
+SUPPORTED_UNITS = ("pm", "AA", "nm", "um")
 
-abstract type Surface end
-(s::Surface)(x::Integer, y::Integer) = s.data[y, x]
-(s::Surface)(xrange::UnitRange, yrange::UnitRange) = s.data[yrange, xrange]
+const DEFAULT_UNIT = SUPPORTED_UNITS[3] # nm
 
 ########################################################
-### Image ##############################################
+### Surface ############################################
 ########################################################
 
 """
-    # Summary
-    - 画像データを扱うための型
-    # Fields
-    - data: 画像データ (nm)
-    - resolution: 解像度 (nm / px)
+    Summary
+    - 2次元の表面データ
+    Parameters
+    - matrix: 表面データ
+    - vert_unit: 垂直方向の単位
+    - horz_resolution: 水平方向の解像度
+    - horz_unit: 水平方向の単位
 """
-struct Image <: Surface
-    data::DenseMatrix{<:Real}
-    resolution::AbstractFloat
+struct Surface
+    matrix::Matrix{Float32}    # vert_unit で表した高さの配列
+    vert_unit::String    # 垂直方向の単位
+    horz_resolution::Float32        # horz_unit / px で表した水平方向の解像度
+    horz_unit::String    # 水平方向の単位
 
-    function Image(data::DenseMatrix{<:Real}, resolution::AbstractFloat; datatype=Float32)
-        data = Matrix{datatype}(data)
-        return new(data, resolution)
+    function Surface(
+        matrix::Matrix{Float32}, vert_unit::String, horz_resolution::Float32, horz_unit::String
+    )
+        throw_if(!(vert_unit in SUPPORTED_UNITS), "Unsupported unit: $vert_unit")
+        throw_if(!(horz_unit in SUPPORTED_UNITS), "Unsupported unit: $horz_unit")
+        return new(matrix, vert_unit, horz_resolution, horz_unit)
+    end
+
+    function Surface(matrix::Matrix{Float32}, resolution::Float32)
+        return Surface(matrix, DEFAULT_UNIT, resolution, DEFAULT_UNIT)
     end
 end
 
+(s::Surface)(x::Integer, y::Integer) = s.matrix[y, x]   # surface(x,y) でs.matrix[y,x]を返す
+(s::Surface)(x_range::UnitRange, y_range::UnitRange) = s.matrix[y_range, x_range]
+
 
 """
-    # Parameters
+    Parameters
     - from: 元画像
     - lowerleft: 左下の座標(ix,iy) (px)
     - size: 抽出するサイズ(x,y) (px)
-    # Returns
+    Returns
     - Image
 """
-function extract(from::Image, lowerleft::Tuple, extract_size::Tuple)::Image
+function extract(from::Surface, lowerleft::Tuple, extract_size::Tuple)::Surface
     low = lowerleft[2]
     left = lowerleft[1]
     if (low < 1 || left < 1)
@@ -63,140 +69,46 @@ function extract(from::Image, lowerleft::Tuple, extract_size::Tuple)::Image
 
     high = low + extract_size[2] - 1
     right = left + extract_size[1] - 1
-    if (high > size(from.data, 1) || right > size(from.data, 2))
+    if (high > size(from.matrix, 1) || right > size(from.matrix, 2))
         throw(ArgumentError("Invalid size."))
     end
 
-    data = from.data[low:high, left:right]
-    return Image(data, from.resolution)
+    matrix = from(low:high, left:right)
+    return Surface(matrix, from.vert_unit, from.horz_resolution, from.horz_unit)
 end
 
-"""
-    # Summary
-    - 1枚の画像から複数の同じサイズの画像を切り出す
-    # Parameters
-    - from: 元画像
-    - lowerleft: 左下の座標(ix,iy) (px)を並べたベクトル
-    - size: 抽出するサイズ(x,y) (px)
-    # Returns
-    - Vector{Image}
-"""
-function extract(
-    from::Image, lowerleft::Vector, size::Tuple
-)::Vector{Image}
-    ret = Vector{Image}(undef, length(lowerleft))
-    for i in 1:length(lowerleft)
-        ret[i] = extract(from, lowerleft[i], size)
-    end
-    return ret
-end
 
 """
-    # Summary
-    - 複数の画像から複数の同じサイズの画像を切り出す
-    # Parameters
-    - from: 元画像
-    - lowerleft: 左下の座標(ix,iy) (px)のベクトルのベクトル
-    - size: 抽出するサイズ(x,y) (px)
-    - flatten: 1次元配列にするかどうか (default: false)
-    # Returns
-    - Vector{Image} or Vector{Vector{Image}}
-"""
-function extract(
-    from::Vector{Image}, lowerleft::Vector, size::Tuple;
-    flatten=false
-)::Union{Vector{Image}, Vector{Vector{Image}}}
-    if (length(lowerleft) != length(size))
-        throw(ArgumentError("length(lowerleft) must be equal to length(size)."))
-    end
-
-    ret = Vector{Vector{Image}}(undef, length(from))
-    for i in 1:length(from)
-        ret[i] = extract(from[i], lowerleft[i], size)
-    end
-
-    if flatten
-        return reduce(vcat, ret)
-    else
-        return ret
-    end
-end
-
-"""
-    # Summary
-    - 与えられた行列でフィルタリングする
-    # Parameters
+    Summary
+    - 与えられた行列で畳み込みを行う
+    Parameters
     - from: 元画像
     - filter: フィルター 奇数x奇数の行列
-    - trim: 端部を切り取るかどうか (default: true)
-    # Returns
+    Returns
     - Image
 """
-function filter(from::Image, filter::DenseMatrix{<:Real}; trim::Bool=true)::Image
+function convolute(from::Surface, filter::Matrix)::Surface
     if (size(filter, 1) % 2 == 0 || size(filter, 2) % 2 == 0)
         throw(ArgumentError("Filter size must be odd."))
     end
     halfheight, halfwidth = div.(size(filter), 2) # 1/2の切り捨て : halfX * 2 = X-1
 
-    if trim
-        size_ret = (size(from.data, 1) - 2 * halfheight, size(from.data, 2) - 2 * halfwidth)
-    else
-        size_ret = (size(from.data, 1), size(from.data, 2))
-    end
-    ret = Array{eltype(from.data)}(undef, size_ret...)
+    # 端部ではフィルターのサイズが足りないので鏡像で埋める
+    mat = Matrix{eltype(from.matrix)}(undef, size(from.matrix, 1)+2*halfheight, size(from.matrix, 2)+2*halfwidth)
+    mat[halfheight+1:end-halfheight, halfwidth+1:end-halfwidth] .= from.matrix
+    mat[:, 1:halfwidth] .= mat[:, 2*halfwidth+1:-1:halfwidth+2]
+    mat[:, end-halfwidth+1:end] .= mat[:, end-halfwidth-2:-1:end-2*halfwidth-1]
+    mat[1:halfheight, :] .= mat[2*halfheight+1:-1:halfheight+2, :]
+    mat[end-halfheight+1:end, :] .= mat[end-halfheight-2:-1:end-2*halfheight-1, :]
 
-    for iy in halfheight+1:size(from.data, 1)-halfheight
-        for ix in halfwidth+1:size(from.data, 2)-halfwidth
-            window = from.data[iy-halfheight:iy+halfheight, ix-halfwidth:ix+halfwidth]
-            ret[iy-iy_ini+1, ix-ix_ini+1] = sum(window .* filter)
+    ret = Matrix{eltype(from.matrix)}(undef, size(from.matrix)...)
+
+    for iy in halfheight+1:halfheight+size(from.matrix, 1)
+        for ix in halfwidth+1:halfwidth+size(from.matrix, 2)
+            ret[iy-halfheight, ix-halfwidth] = sum(mat[iy-halfheight:iy+halfheight, ix-halfwidth:ix+halfwidth] .* filter)
         end
     end
-    return Image(data, from.resolution)
+    return Surface(ret, from.vert_unit, from.horz_resolution, from.horz_unit)
 end
 
-"""
-    # Summary
-    - 横方向の微分を計算する
-    # Parameters
-    - from: 元画像
-    # Returns
-    - Image
-"""
-function horz_diff(from::Image)::Image
-    filter = [0.5 -1 0.5]
-    return filter(from, filter)
-end
-
-"""
-    # Summary
-    - 縦方向の微分を計算する
-    # Parameters
-    - from: 元画像
-    # Returns
-    - Image
-"""
-function vert_diff(from::Image)::Image
-    filter = [0.5 -1 0.5]'
-    return filter(from, filter)
-end
-
-########################################################
-### Tip ################################################
-########################################################
-
-"""
-    # Summary
-    - チップデータを扱うための型
-    # Fields
-    - data: チップデータ (nm)
-    - resolution: 解像度 (nm / px)
-    # Constructor Parameters
-    - data: チップデータ
-    - resolution: 解像度 (nm / px)
-"""
-struct Tip <: Surface
-    data::DenseMatrix{<:Real}
-    resolution::AbstractFloat
-end
-
-end
+end # module SPMCore

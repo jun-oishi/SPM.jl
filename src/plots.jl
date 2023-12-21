@@ -1,6 +1,7 @@
 module SPMPlots
 
-using ..SPMCore, ..Unitful
+using ..SPMCore
+
 import Plots
 
 """
@@ -12,15 +13,15 @@ import Plots
     - Plots.Plot
 """
 function heatmap(surface::SPMCore.Surface; kw...)::Plots.Plot
-    x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
-    y_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
-    return Plots.heatmap(x_mesh, y_mesh, surface.data .* DEFAULT_UNIT, aspectratio=:equal; kw...)
+    x_mesh = collect(1:size(surface.matrix, 2)) .* surface.horz_resolution
+    y_mesh = collect(1:size(surface.matrix, 1)) .* surface.horz_resolution
+    return Plots.heatmap(x_mesh, y_mesh, surface.matrix, aspectratio=:equal; kw...)
 end
 
 function plot3dView(surface::SPMCore.Surface; kw...)::Plots.Plot
-    x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
-    y_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
-    return Plots.plot(x_mesh, y_mesh, surface.data .* DEFAULT_UNIT, st=:surface; kw...)
+    x_mesh = collect(1:size(surface.matrix, 2)) .* surface.horz_resolution
+    y_mesh = collect(1:size(surface.matrix, 1)) .* surface.horz_resolution
+    return Plots.plot(x_mesh, y_mesh, surface.matrix, st=:surface; kw...)
 end
 
 function plotProfile!(
@@ -30,11 +31,11 @@ function plotProfile!(
         plot = Plots.plot()
     end
     if direction == :x
-        x_mesh = collect(1:size(surface.data, 1)) .* surface.resolution * DEFAULT_UNIT
-        y_mesh = surface.data[:, i_slice] * DEFAULT_UNIT
+        x_mesh = collect(1:size(surface.matrix, 1)) .* surface.horz_resolution
+        y_mesh = surface.matrix[:, i_slice]
     elseif direction == :y
-        x_mesh = collect(1:size(surface.data, 2)) .* surface.resolution * DEFAULT_UNIT
-        y_mesh = surface.data[i_slice, :] * DEFAULT_UNIT
+        x_mesh = collect(1:size(surface.matrix, 2)) .* surface.horz_resolution
+        y_mesh = surface.matrix[i_slice, :]
     else
         throw(ArgumentError("direction must be :x or :y"))
     end
