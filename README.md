@@ -1,9 +1,56 @@
 # SPM
 
-## CITATION AND ACKNOWLEDGEMENT
+## できること
 
-The algorithm for Villarrubia blind tip reconstruction is based on J. S. Villarrubia, “Algorithms for scanned probe microscope image simulation, surface reconstruction, and tip estimation,” _J. Res. Natl. Inst. Stand. Technol._, vol. 102, no. 4, p. 425, Jul. 1997, doi: 10.6028/jres.102.030.
+- HDRファイルの読み込み/書き出し
+- 表面形状のプロット
+- 探針形状の再構成
 
-The algorithm and codes for differentiable blind tip reconstruction is based on Y. Matsunaga, S. Fuchigami, T. Ogane, and S. Takada, “End-to-End Differentiable Blind Tip Reconstruction for Noisy Atomic Force Microscopy Images,” _Biophysics, preprint_, Sep. 2022. doi: 10.1101/2022.09.24.509314.
+## 環境構築
 
-Codes for both reconstruction method are based on program written by Matsunaga et al. https://github.com/matsunagalab/differentiable_BTR and https://github.com/matsunagalab/MDToolbox.jl.
+WinsdowsならWSLを使うのがおすすめ
+
+### juliaのインストール
+
+https://julialang.org/downloads/ を参照
+
+### juliaのパッケージのインストール
+
+このディレクトリでjuliaのREPLを起動し、以下のコマンドを実行する。
+`Project.toml`に記述された依存パッケージがインストールされる。
+この中に含まれる`MDToolbox`がMatsunagaによる探針再構成のプログラム。
+
+```julia
+julia> ]                    # `]`キーを押せばpkgモードに入る
+(@v1.9) pkg> activate .     # このディレクトリで有効な環境を作成
+(@v1.9) pkg> instantiate    # Project.tomlに記述された依存パッケージをインストール
+```
+
+### jupyter notebookのインストールと設定
+
+pythonをインストールして
+
+```bash
+pip install jupyter
+```
+
+とかすればいいです( https://jupyter.org/install も参照)。Anacondaを使っている場合は少し違うらしいですね。
+
+jupyterが使えるようになったら自動的にPythonに加えてJuliaのカーネルも使えるようになっているはず(juliaの`IJulia`パッケージが橋渡しになるらしい)。
+
+## 使い方
+
+`test.ipynb`を参照のこと。
+
+## 不具合など
+
+### 再構成が遅い
+
+探針サイズが大きくなると飛躍的に計算量が増えてなかなか終わらなくなる。
+10x10くらいで動作確認をして計算時間を見ながら大きくしていくのが良いと思います。
+
+[マルチスレッド化](https://docs.julialang.org/en/v1/manual/multi-threading/)や[GPUの使用](https://fluxml.ai/Flux.jl/stable/gpu/)(differentiableの場合)で高速化できるかもしれないので、興味があれば調べてみてください。
+
+### 再構成した探針の保存
+
+再構成の条件を`remark`などに入れるようにしているはずなのに、なぜか保存されません。
