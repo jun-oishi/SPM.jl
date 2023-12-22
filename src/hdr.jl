@@ -137,9 +137,7 @@ function saveHDR(
     if sample_name == ""
         sample_name = replace(basename(dist_path), ".hdr" => "")
     end
-    if remark == ""
-        remark = "Created by SPM.jl"
-    end
+    remark = remark * " - Created by SPM.jl"
 
     data = surface.matrix' .- minimum(surface.matrix)
     data[isnan.(data)] .= 0
