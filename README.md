@@ -23,7 +23,7 @@ https://julialang.org/downloads/ を参照
 ```julia
 julia> ]                    # `]`キーを押せばpkgモードに入る
 (@v1.9) pkg> activate .     # このディレクトリで有効な環境を作成
-(@v1.9) pkg> instantiate    # Project.tomlに記述された依存パッケージをインストール
+(SPM) pkg> instantiate    # Project.tomlに記述された依存パッケージをインストール
 ```
 
 ### jupyter notebookのインストールと設定
