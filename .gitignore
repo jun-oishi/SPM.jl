@@ -1,1 +1,14 @@
 /Manifest.toml
+
+.ipynb_checkpoints
+.vscode
+
+example/data/*
+!example/data/B3444.dat
+!example/data/B3444.hdr
+!example/data/B3446.dat
+!example/data/B3446.hdr
+!example/data/B3447.dat
+!example/data/B3447.hdr
+!example/data/B3448.dat
+!example/data/B3448.hdr

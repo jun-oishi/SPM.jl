@@ -1,0 +1,13 @@
+version: "3"
+services:
+    julia-notebook:
+        image: jupyter/datascience-notebook:x86_64-ubuntu-22.04
+        volumes:
+            - ./:/home/jovyan/work
+        ports:
+            - 8888:8888
+        container_name: julia-notebook
+        environment:
+            - JUPYTER_ENABLE_LAB=yes
+            - JULIA_NUM_THREADS=1 # マルチスレッドで実行する場合適宜変更
+        command: /bin/bash -c "jupyter-lab --no-browser --NotebookApp.token='' --port=8888"
